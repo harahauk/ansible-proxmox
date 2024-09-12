@@ -1,0 +1,8 @@
+---
+# handlers file for proxmox
+
+- name: "Reload kernel-flags"
+  shell:
+      cmd: "sysctl --system"
+  become: yes
+

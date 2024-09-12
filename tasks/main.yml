@@ -1,0 +1,47 @@
+---
+# tasks file for proxmox
+
+#FIXME: Use proxmox own wrapper around the apt command
+- name: "Set custom kernel attributes for Gitlab"
+  copy:
+      src: "90-gitlab-in-lxc-kernel-options.conf"
+      dest: "/etc/sysctl.d/90-gitlab-in-lxc-kernel-options.conf"
+  become: yes
+  notify: "Reload kernel-flags"
+
+- name: "Setup IP forwarding"
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: yes
+    state: present
+    reload: yes
+  with_items: "{{ proxmox.sysctl | dict2items }}"
+
+- name: "Keep Proxmox updated"
+  apt:
+    upgrade: "dist"
+    force_apt_get: yes
+  become: yes
+
+- name: "Update templates (pveam) NOTE: Never shows as changed, cause its ALWAYS a change"
+  command:
+      cmd: "pveam update"
+  become: yes
+  changed_when: no # This is always changing so disabled for now
+
+- name: "Check if a reboot is needed for Debian and Ubuntu boxes"
+  register: reboot_required_file
+  stat:
+    path: "/var/run/reboot-required"
+    get_md5: no
+
+- name: "Checking if reboot is needed and setting 'reboot_required'"
+  set_fact:
+    reboot_required: "{{ reboot_required_file.stat.exists }}"
+
+- name: "Reboot notification"
+  debug:
+    msg: "You should reboot this system when convenient or investigate what services needs restart."
+  when: reboot_required
+
